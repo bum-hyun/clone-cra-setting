@@ -9,6 +9,8 @@ const ManifestPlugin = require("webpack-manifest-plugin");
 const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin");
 const appPublic = path.resolve(__dirname, "public");
 const shouldUseSourceMap = process.env.GENERATE_SOURCEMAP !== "false";
+const TerserPlugin = require("terser-webpack-plugin");
+const BundleAnalyzerPlugin = require("webpack-bundle-analyzer").BundleAnalyzerPlugin;
 
 function getClientEnv(nodeEnv) {
   return {
@@ -32,7 +34,17 @@ module.exports = (webpackEnv) => {
     entry: appIndex,
     output: {
       path: appBuild,
-      filename: isEnvDevelopment ? "static/js/[name].[contenthash:8].js" : isEnvProduction && "static/js/bundle.js",
+      chunkFilename: isEnvProduction ? "static/js/[name].[contenthash:8].chunk.js" : isEnvDevelopment && "static/js/[name].chunk.js",
+    },
+    optimization: {
+      splitChunks: {
+        chunks: "all"
+      },
+      runtimeChunk: {
+        name: (entrypoint) => `runtime-${entrypoint.name}`
+      },
+      minimize: isEnvProduction,
+      minimizer: [new TerserPlugin()]
     },
     module: {
       rules: [
@@ -87,7 +99,8 @@ module.exports = (webpackEnv) => {
           files: "./src/**/*.{ts,tsx,js,jsx}"
         }
       }),
-    ],
+      isEnvProduction && new BundleAnalyzerPlugin(),
+    ].filter(Boolean),
     cache: {
       type: isEnvDevelopment ? "memory" : isEnvProduction && "filesystem"
     },
@@ -114,6 +127,6 @@ module.exports = (webpackEnv) => {
       publicPath: true,
       excludeAssets: [/\.(map|txt|html|jpg|png)$/, /\.json$/],
       warningsFilter: [/exceed/, /performance/],
-    }
+    },
   }
 }
